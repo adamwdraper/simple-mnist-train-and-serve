@@ -1,0 +1,10 @@
+wandb
+torch
+torchvision
+scikit-learn
+PyYAML
+fastapi
+uvicorn[standard]
+Pillow
+python-multipart
+jinja2 

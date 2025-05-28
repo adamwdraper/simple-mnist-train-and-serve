@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MNIST Digit Recognizer UI</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            text-align: center;
+            min-width: 300px;
+        }
+        #imagePreviewContainer {
+            width: 150px;
+            height: 150px;
+            border: 2px dashed #ccc;
+            margin: 20px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden; /* To contain the image if it's larger */
+        }
+        #imagePreview {
+            max-width: 100%;
+            max-height: 100%;
+            display: none; /* Hidden by default */
+        }
+        #imageUpload {
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:disabled {
+            background-color: #ccc;
+        }
+        #loader {
+            display: none; /* Hidden by default */
+            margin: 10px 0;
+            font-style: italic;
+        }
+        #results {
+            margin-top: 20px;
+            text-align: left;
+        }
+        #results h3 {
+            margin-bottom: 5px;
+            text-align: center;
+        }
+        #results h4 {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        #predictionText {
+            font-size: 24px;
+            font-weight: bold;
+            color: #28a745;
+        }
+        #scoresTable {
+            width: 80%;
+            margin: 10px auto;
+            border-collapse: collapse;
+        }
+        #scoresTable th, #scoresTable td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        #scoresTable th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>MNIST Digit Recognizer</h1>
+        
+        <input type="file" id="imageUpload" accept="image/png, image/jpeg, image/gif">
+        
+        <div id="imagePreviewContainer">
+            <img id="imagePreview" src="#" alt="Image Preview">
+        </div>
+        
+        <button id="predictButton" disabled>Predict</button>
+        
+        <div id="loader">Predicting...</div>
+        
+        <div id="results" style="display: none;">
+            <h3>Prediction: <span id="predictionText"></span></h3>
+            <h4>Confidence Scores:</h4>
+            <table id="scoresTable">
+                <thead>
+                    <tr>
+                        <th>Digit</th>
+                        <th>Score</th>
+                    </tr>
+                </thead>
+                <tbody id="scoresTableBody">
+                    <!-- Score rows will be inserted here by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const imageUpload = document.getElementById('imageUpload');
+        const imagePreview = document.getElementById('imagePreview');
+        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+        const predictButton = document.getElementById('predictButton');
+        const loader = document.getElementById('loader');
+        const resultsDiv = document.getElementById('results');
+        const predictionText = document.getElementById('predictionText');
+        const scoresTableBody = document.getElementById('scoresTableBody');
+
+        let imageDataArray = null;
+
+        imageUpload.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    imagePreview.style.display = 'block';
+                    // Process image to 28x28 grayscale and get pixel data
+                    processImage(file);
+                }
+                reader.readAsDataURL(file);
+                resultsDiv.style.display = 'none'; // Hide previous results
+                predictButton.disabled = true; // Disable until processing is done
+            } else {
+                imagePreview.src = '#';
+                imagePreview.style.display = 'none';
+                predictButton.disabled = true;
+                imageDataArray = null;
+            }
+        });
+
+        function processImage(file) {
+            const tempImage = new Image();
+            const reader = new FileReader();
+
+            reader.onload = (e) => {
+                tempImage.onload = () => {
+                    // Create a canvas to resize and get pixel data
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = 28;
+                    canvas.height = 28;
+
+                    // Draw the image onto the canvas, resizing it
+                    ctx.drawImage(tempImage, 0, 0, 28, 28);
+
+                    // Get the pixel data from the canvas
+                    const rawPixelData = ctx.getImageData(0, 0, 28, 28).data;
+                    imageDataArray = [];
+                    
+                    // Convert to grayscale and flatten. 
+                    // MNIST is white digit on black background. 
+                    // If user uploads black on white, we might need to invert.
+                    // For simplicity, we assume input will be somewhat like MNIST.
+                    // The model expects normalized (0-1) pixel values, where higher values are darker/ink.
+                    // Typical browser canvas gives RGBA. We take R, G, or B (they are same for grayscale)
+                    // and then invert if needed (e.g. if black text on white bg is common from uploads)
+                    // For now, let's average RGB and normalize assuming white digit on black or dark background.
+                    // (255 - average_rgb) / 255 would make white ink on black background (higher value for ink)
+                    for (let i = 0; i < rawPixelData.length; i += 4) {
+                        // Simple grayscale: average of R, G, B. Then normalize.
+                        // MNIST is typically white digit on black background. ToTensor normalizes (0,1) range from PIL.
+                        // Our /predict endpoint handles 0-255 and normalizes to 0-1. Let's send 0-255 for now.
+                        // We will take the average of R,G,B. If it's a very light background, this might be okay.
+                        // For more robust: check if background is lighter than foreground and invert.
+                        // MNIST black is 0, white is 255. For a white digit on black bg, digit pixels are high.
+                        let gray = (rawPixelData[i] + rawPixelData[i+1] + rawPixelData[i+2]) / 3;
+                        // If you expect users to draw black on white, you might need to invert:
+                        // gray = 255 - gray;
+                        imageDataArray.push(gray); 
+                    }
+                    predictButton.disabled = false;
+                };
+                tempImage.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        predictButton.addEventListener('click', async function() {
+            if (!imageDataArray) {
+                alert('Please select an image first.');
+                return;
+            }
+
+            loader.style.display = 'block';
+            resultsDiv.style.display = 'none';
+            predictButton.disabled = true;
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ pixels: imageDataArray })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                predictionText.textContent = data.predicted_digit;
+                
+                // Populate the table with scores
+                scoresTableBody.innerHTML = ''; // Clear previous scores
+                data.scores.forEach((score, index) => {
+                    const row = scoresTableBody.insertRow();
+                    const cellDigit = row.insertCell();
+                    const cellScore = row.insertCell();
+                    cellDigit.textContent = index;
+                    cellScore.textContent = score.toFixed(4);
+                });
+                resultsDiv.style.display = 'block';
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to get prediction: ' + error.message);
+                resultsDiv.style.display = 'none';
+            } finally {
+                loader.style.display = 'none';
+                if (imageUpload.files.length > 0 && imageDataArray) { // Only enable if image is processed
+                    predictButton.disabled = false;
+                } else {
+                    predictButton.disabled = true;
+                }
+            }
+        });
+    </script>
+</body>
+</html> 
