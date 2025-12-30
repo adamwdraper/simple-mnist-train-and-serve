@@ -1,0 +1,17 @@
+[project]
+name = "simple-mnist-train-and-serve"
+version = "0.1.0"
+description = "A simple MNIST digit recognizer with training and serving capabilities"
+requires-python = ">=3.11"
+dependencies = [
+    "wandb",
+    "torch",
+    "torchvision",
+    "scikit-learn",
+    "pyyaml",
+    "fastapi",
+    "uvicorn[standard]",
+    "pillow",
+    "python-multipart",
+    "jinja2",
+]

@@ -166,3 +166,6 @@ wandb/
 
 # Data files
 data/
+
+# uv
+uv.lock

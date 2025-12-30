@@ -40,24 +40,47 @@ This learning process happens through training:
 
 By continuously adjusting its parameters, the model gets better at mapping the input pixel patterns to the correct digit labels.
 
+## Setup
+
+This project uses [uv](https://docs.astral.sh/uv/) for fast, reliable Python package management.
+
+### Install uv
+
+If you don't have uv installed, install it first:
+
+```bash
+# macOS/Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Or with Homebrew
+brew install uv
+```
+
+### Install Dependencies
+
+Once uv is installed, sync the project dependencies:
+
+```bash
+uv sync
+```
+
+This will create a virtual environment in `.venv` and install all required packages.
+
 ## Running the Script
 
-1.  **Install Dependencies**:
-    Make sure you have `PyYAML` included in your `requirements.txt` and install it:
-    ```bash
-    pip install -r requirements.txt
-    ```
-2.  **Configure Hyperparameters**:
+1.  **Configure Hyperparameters**:
     Edit the `config.yaml` file to set your desired hyperparameters (e.g., `epochs`, `lr`, `batch_size`).
-3.  **Log in to Weights & Biases**:
+
+2.  **Log in to Weights & Biases**:
     If you haven't used W&B before, sign up at [https://wandb.ai/site](https://wandb.ai/site) and then log in via your terminal:
     ```bash
-    wandb login
+    uv run wandb login
     ```
     You will be prompted for your API key.
-4.  **Run the Training Script**:
+
+3.  **Run the Training Script**:
     ```bash
-    python train.py
+    uv run python train.py
     ```
 
 ## Viewing Metrics and Artifacts
@@ -167,7 +190,7 @@ This project includes a FastAPI server (`serve.py`) to expose the trained MNIST 
 To start the API server, navigate to your project directory in the terminal and run:
 
 ```bash
-uvicorn serve:app
+uv run uvicorn serve:app
 ```
 
 You should see output indicating the server is running, typically on `http://127.0.0.1:8000`.
