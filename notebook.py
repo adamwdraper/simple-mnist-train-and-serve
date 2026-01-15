@@ -12,39 +12,123 @@ def _():
 
 @app.cell
 def _(mo):
-    mo.md(
+    # Main title and summary
+    intro_header = mo.md(
         """
         # Simple MNIST Digit Recognizer
 
-        This interactive notebook demonstrates training a neural network to recognize handwritten digits 
-        using the MNIST dataset, with experiment tracking via **Weights & Biases**.
-
-        ## What You'll Learn
-
-        - How a simple neural network classifies images
-        - How to track experiments with W&B
-        - How hyperparameters affect model performance
-
-        ## The Dataset: MNIST
-
-        The MNIST dataset contains 70,000 grayscale images of handwritten digits (0-9):
-        - **60,000** images for training
-        - **10,000** images for testing
-        - Each image is **28x28 pixels**
-
-        ## The Model: SimpleNN
-
-        A 2-layer feed-forward neural network:
-
-        1. **Input**: Flattened 28x28 image (784 values)
-        2. **Hidden Layer**: 128 neurons with ReLU activation
-        3. **Output**: 10 neurons (one per digit class)
-
-        ---
-
-        **New to W&B?** [Sign up here](https://wandb.ai/site) to get your API key.
+        Welcome! This interactive notebook will teach you the fundamentals of training a neural network 
+        by building a model that recognizes handwritten digits. You'll train a real model, track your 
+        experiments with **Weights & Biases**, and see how changing settings affects performance.
         """
     )
+
+    # Accordion content for deeper explanations
+    what_is_mnist = mo.md(
+        """
+        **MNIST** (Modified National Institute of Standards and Technology) is the "Hello World" of 
+        machine learning. It's a dataset of 70,000 handwritten digit images that has been used since 
+        1998 to benchmark image classification algorithms.
+
+        **Why MNIST matters:**
+        - It's simple enough to train quickly (minutes, not hours)
+        - Complex enough to demonstrate real ML concepts
+        - Small enough to run on any computer (no GPU required)
+        - Well-understood, so you can compare your results to others
+
+        **The dataset contains:**
+        - **60,000 training images** - used to teach the model
+        - **10,000 test images** - used to evaluate performance on unseen data
+        - Each image is **28x28 pixels**, grayscale (single channel)
+        - Labels are digits **0-9**
+
+        The images were collected from Census Bureau employees and high school students writing digits.
+        """
+    )
+
+    what_is_classification = mo.md(
+        """
+        **Image classification** is teaching a computer to look at an image and assign it to a category.
+
+        **The problem we're solving:**
+        - **Input**: A 28x28 pixel image of a handwritten digit
+        - **Output**: A prediction of which digit (0-9) it represents
+
+        This is a **supervised learning** task because we have labeled examples (images paired with 
+        the correct digit) that we use to train the model.
+
+        **How the model learns:**
+        1. **See an image** - The model receives pixel values as input
+        2. **Make a guess** - It outputs probabilities for each digit (0-9)
+        3. **Check the answer** - Compare the guess to the true label
+        4. **Adjust weights** - If wrong, tweak internal parameters to do better next time
+        5. **Repeat** - Process thousands of images, gradually improving
+
+        After training, the model can classify new images it has never seen before.
+        """
+    )
+
+    what_is_neural_network = mo.md(
+        """
+        A **neural network** is a computational model inspired by how the brain processes information.
+
+        **Our SimpleNN architecture:**
+
+        ```
+        Input (784 pixels) → Hidden Layer (128 neurons) → Output (10 classes)
+        ```
+
+        **How it works:**
+
+        1. **Input Layer**: The 28x28 image is flattened into 784 numbers (pixel values)
+
+        2. **Hidden Layer**: 128 neurons, each connected to all 784 inputs
+           - Each neuron computes a weighted sum of inputs plus a bias
+           - A **ReLU activation** (Rectified Linear Unit) is applied: negative values become 0
+           - This layer learns to detect patterns like edges, curves, and shapes
+
+        3. **Output Layer**: 10 neurons, one for each digit class
+           - Each outputs a "score" for how likely the image is that digit
+           - The highest score is the model's prediction
+
+        **What gets learned:**
+        - The **weights** (128 × 784 + 10 × 128 = 101,632 parameters!)
+        - These start random and are adjusted during training
+        """
+    )
+
+    what_is_wandb = mo.md(
+        """
+        **Weights & Biases (W&B)** is an experiment tracking platform for machine learning.
+
+        **Why use it:**
+        - **Track metrics** - See loss and accuracy over time as charts
+        - **Compare runs** - Run multiple experiments and compare them side-by-side
+        - **Log artifacts** - Save your trained models for later use
+        - **Reproduce results** - Every run logs its configuration
+
+        **What we'll log:**
+        - `batch_loss` - How wrong the model is on each batch of images
+        - `epoch_loss` - Average loss over a full pass through the training data
+        - `epoch_accuracy` - Percentage of training images classified correctly
+        - `test_accuracy` - Final accuracy on unseen test images
+        - `sample_predictions` - Actual images with predicted vs true labels
+        - `misclassified_examples` - Images where the model got it wrong
+
+        After training, you'll get a link to your W&B dashboard to explore all of this visually.
+        """
+    )
+
+    mo.vstack([
+        intro_header,
+        mo.accordion({
+            "What is MNIST?": what_is_mnist,
+            "What is image classification?": what_is_classification,
+            "How does a neural network work?": what_is_neural_network,
+            "What is Weights & Biases?": what_is_wandb,
+        }),
+        mo.md("---\n\n**New to W&B?** [Sign up here](https://wandb.ai/site) to get your API key."),
+    ])
     return
 
 
@@ -61,6 +145,8 @@ def _():
     import numpy as np
     from PIL import Image
     import io
+    import yaml
+    import subprocess
     return (
         Image,
         accuracy_score,
@@ -68,10 +154,12 @@ def _():
         nn,
         np,
         optim,
+        subprocess,
         torch,
         torchvision,
         transforms,
         wandb,
+        yaml,
     )
 
 
@@ -157,13 +245,7 @@ def _(api_key_input, login_button, mo, wandb):
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        ## Step 2: Configure Hyperparameters
-
-        Adjust the training settings below. Experiment with different values to see how they affect model performance!
-        """
-    )
+    mo.md("## Step 2: Configure Hyperparameters")
     return
 
 
@@ -178,6 +260,25 @@ def _(mo):
         show_value=True,
     )
 
+    epochs_explanation = mo.md(
+        """
+        **What is an epoch?**
+
+        One epoch = one complete pass through all 60,000 training images.
+
+        **Effects:**
+        - **Too few (1-2)**: Model hasn't learned enough patterns → **underfitting** (low accuracy)
+        - **Too many (20+)**: Model memorizes training data instead of learning general patterns → **overfitting**
+        - **Signs of overfitting**: Training accuracy keeps improving, but test accuracy stops improving or gets worse
+
+        **Try:** Start with 5 epochs, then try 10 to see if accuracy improves.
+        """
+    )
+    return epochs_explanation, epochs_slider
+
+
+@app.cell
+def _(mo):
     lr_slider = mo.ui.slider(
         start=0.0001,
         stop=0.1,
@@ -187,39 +288,90 @@ def _(mo):
         show_value=True,
     )
 
+    lr_explanation = mo.md(
+        """
+        **What is learning rate?**
+
+        The learning rate controls how much the model adjusts its weights after each batch. Think of it 
+        as the "step size" when walking downhill to find the lowest point (best model).
+
+        **Effects:**
+        - **Too high (0.01-0.1)**: Model takes huge steps, might overshoot the best solution → loss jumps around or explodes
+        - **Too low (0.0001)**: Model takes tiny steps, learns very slowly → needs many more epochs
+        - **Just right (0.001)**: Balanced learning, steady improvement
+
+        **Try:** The default 0.001 works well for most cases. Try 0.01 to see unstable training.
+        """
+    )
+    return lr_explanation, lr_slider
+
+
+@app.cell
+def _(mo):
     batch_size_dropdown = mo.ui.dropdown(
         options={"32": 32, "64": 64, "128": 128, "256": 256},
         value="64",
         label="Batch Size",
     )
-    return batch_size_dropdown, epochs_slider, lr_slider
+
+    batch_explanation = mo.md(
+        """
+        **What is batch size?**
+
+        Instead of updating weights after every single image, we process images in batches. The batch 
+        size is how many images we look at before making one weight update.
+
+        **Effects:**
+        - **Smaller (32)**: More frequent updates, "noisier" learning, can escape bad local minima. Uses less memory. Slower per epoch.
+        - **Larger (256)**: Fewer updates per epoch, smoother learning, faster training. Uses more memory. May converge to worse solutions.
+
+        **Math:** With 60,000 images and batch_size=64, you get 938 weight updates per epoch.
+
+        **Try:** 64 is a good default. Try 32 for potentially better generalization, 256 for faster training.
+        """
+    )
+    return batch_explanation, batch_size_dropdown
 
 
 @app.cell
-def _(batch_size_dropdown, epochs_slider, lr_slider, mo):
-    mo.hstack(
-        [
-            mo.vstack([mo.md("**Epochs**"), epochs_slider]),
-            mo.vstack([mo.md("**Learning Rate**"), lr_slider]),
-            mo.vstack([mo.md("**Batch Size**"), batch_size_dropdown]),
-        ],
-        justify="start",
-        gap=2,
-    )
+def _(batch_explanation, batch_size_dropdown, epochs_explanation, epochs_slider, lr_explanation, lr_slider, mo):
+    # Three columns: each has slider on top, explanation below
+    mo.hstack([
+        mo.vstack([
+            mo.md("**Epochs**"),
+            epochs_slider,
+            epochs_explanation,
+        ], align="start"),
+        mo.vstack([
+            mo.md("**Learning Rate**"),
+            lr_slider,
+            lr_explanation,
+        ], align="start"),
+        mo.vstack([
+            mo.md("**Batch Size**"),
+            batch_size_dropdown,
+            batch_explanation,
+        ], align="start"),
+    ], justify="start", gap=3, align="start")
     return
 
 
 @app.cell
-def _(batch_size_dropdown, epochs_slider, lr_slider, mo):
-    config_summary = mo.md(
-        f"""
-        ### Current Configuration
-        | Parameter | Value |
-        |-----------|-------|
-        | Epochs | {epochs_slider.value} |
-        | Learning Rate | {lr_slider.value:.4f} |
-        | Batch Size | {batch_size_dropdown.value} |
-        """
+def _(batch_size_dropdown, epochs_slider, lr_slider, mo, yaml):
+    # Sync hyperparameters to config.yaml so train.py uses them
+    _config = {
+        "epochs": epochs_slider.value,
+        "lr": lr_slider.value,
+        "batch_size": int(batch_size_dropdown.value),
+    }
+    with open("config.yaml", "w") as _f:
+        yaml.dump(_config, _f, default_flow_style=False)
+
+    config_summary = mo.callout(
+        mo.md(
+            f"**Current config:** {epochs_slider.value} epochs, LR={lr_slider.value:.4f}, batch size={batch_size_dropdown.value} *(saved to config.yaml)*"
+        ),
+        kind="info",
     )
     config_summary
     return (config_summary,)
@@ -231,11 +383,14 @@ def _(mo):
         """
         ## Step 3: Train the Model
 
-        Click the button below to start training. The model will:
+        Click the button below to run the training script. This will:
         1. Download the MNIST dataset (if not cached)
-        2. Train for the specified number of epochs
+        2. Train for the configured number of epochs
         3. Log metrics to W&B
         4. Evaluate on the test set
+        5. Save the model artifact
+
+        The console output below will show the real training progress, including the W&B run URL.
         """
     )
     return
@@ -243,214 +398,60 @@ def _(mo):
 
 @app.cell
 def _(mo):
-    train_button = mo.ui.run_button(label="Start Training", kind="success")
+    train_button = mo.ui.run_button(label="Run Training Script", kind="success")
     train_button
     return (train_button,)
 
 
 @app.cell
-def _(
-    SimpleNN,
-    accuracy_score,
-    batch_size_dropdown,
-    epochs_slider,
-    logged_in,
-    lr_slider,
-    mo,
-    nn,
-    optim,
-    torch,
-    torchvision,
-    train_button,
-    transforms,
-    wandb,
-):
-    training_result = None
-    run_url = None
-    trained_model = None
-    test_accuracy = None
+def _(logged_in, mo, subprocess, train_button):
+    training_output = None
 
     if train_button.value:
         if not logged_in:
-            training_result = mo.callout(
+            training_output = mo.callout(
                 mo.md("**Please log in to W&B first** (Step 1) before training."),
                 kind="warn",
             )
         else:
-            mo.output.replace(mo.md("**Initializing training...**"))
+            mo.output.replace(mo.md("**Running training script... This may take a few minutes.**"))
 
-            # Device configuration
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-            # Data transforms
-            transform = transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Normalize((0.1307,), (0.3081,))
-            ])
-
-            # Load datasets
-            mo.output.replace(mo.md("**Downloading/loading MNIST dataset...**"))
-            train_dataset = torchvision.datasets.MNIST(
-                root='./data', train=True, transform=transform, download=True
-            )
-            test_dataset = torchvision.datasets.MNIST(
-                root='./data', train=False, transform=transform, download=True
+            # Run the training script as a subprocess
+            result = subprocess.run(
+                ["uv", "run", "python", "train.py"],
+                capture_output=True,
+                text=True,
+                cwd=".",
             )
 
-            batch_size = int(batch_size_dropdown.value)
-            train_loader = torch.utils.data.DataLoader(
-                dataset=train_dataset, batch_size=batch_size, shuffle=True
-            )
-            test_loader = torch.utils.data.DataLoader(
-                dataset=test_dataset, batch_size=batch_size, shuffle=False
-            )
+            # Combine stdout and stderr for full output
+            console_output = result.stdout + result.stderr
 
-            # Initialize model
-            model = SimpleNN().to(device)
-            criterion = nn.CrossEntropyLoss()
-            optimizer = optim.Adam(model.parameters(), lr=lr_slider.value)
+            if result.returncode == 0:
+                training_output = mo.vstack([
+                    mo.callout(
+                        mo.md("**Training Complete!** See the output below for your W&B run link."),
+                        kind="success",
+                    ),
+                    mo.md("### Console Output"),
+                    mo.md(f"```\n{console_output}\n```"),
+                ])
+            else:
+                training_output = mo.vstack([
+                    mo.callout(
+                        mo.md("**Training failed.** See the error output below."),
+                        kind="danger",
+                    ),
+                    mo.md("### Console Output"),
+                    mo.md(f"```\n{console_output}\n```"),
+                ])
 
-            # Initialize W&B run (same pattern as train.py)
-            run = wandb.init(
-                project="simple-mnist-training",
-                config={
-                    "epochs": epochs_slider.value,
-                    "lr": lr_slider.value,
-                    "batch_size": batch_size,
-                },
-            )
-            run_url = run.url
+            mo.output.replace(training_output)
 
-            # Training loop
-            training_logs = []
-            for epoch in range(epochs_slider.value):
-                model.train()
-                running_loss = 0.0
-                epoch_labels = []
-                epoch_preds = []
-
-                mo.output.replace(
-                    mo.md(f"**Training Epoch {epoch + 1}/{epochs_slider.value}...**")
-                )
-
-                for i, (images, labels) in enumerate(train_loader):
-                    images = images.to(device)
-                    labels = labels.to(device)
-
-                    outputs = model(images)
-                    loss = criterion(outputs, labels)
-
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
-
-                    running_loss += loss.item()
-                    _, predicted = torch.max(outputs.data, 1)
-                    epoch_preds.extend(predicted.cpu().numpy())
-                    epoch_labels.extend(labels.cpu().numpy())
-
-                    if (i + 1) % 100 == 0:
-                        wandb.log({"batch_loss": loss.item(), "epoch": epoch, "batch_step": i+1})
-
-                epoch_loss = running_loss / len(train_loader)
-                epoch_accuracy = accuracy_score(epoch_labels, epoch_preds)
-                training_logs.append({
-                    "epoch": epoch + 1,
-                    "loss": epoch_loss,
-                    "accuracy": epoch_accuracy
-                })
-                wandb.log({
-                    "epoch_loss": epoch_loss,
-                    "epoch_accuracy": epoch_accuracy,
-                    "epoch": epoch + 1
-                })
-
-            # Evaluation (same as train.py)
-            mo.output.replace(mo.md("**Evaluating on test set...**"))
-            model.eval()
-            all_preds = []
-            all_labels = []
-
-            # Create W&B Tables
-            sample_predictions_table = wandb.Table(columns=["Image", "True Label", "Predicted Label"])
-            misclassified_table = wandb.Table(columns=["Image", "True Label", "Predicted Label"])
-            MAX_SAMPLES_TO_LOG = 100
-            samples_logged = 0
-
-            with torch.no_grad():
-                for images, labels in test_loader:
-                    images_device = images.to(device)
-                    outputs = model(images_device)
-                    _, predicted = torch.max(outputs.data, 1)
-
-                    all_preds.extend(predicted.cpu().numpy())
-                    all_labels.extend(labels.numpy())
-
-                    # Log samples and misclassifications
-                    for j in range(images.size(0)):
-                        true_label = labels[j].item()
-                        pred_label = predicted[j].item()
-
-                        if samples_logged < MAX_SAMPLES_TO_LOG:
-                            sample_img = wandb.Image(images[j])
-                            sample_predictions_table.add_data(sample_img, true_label, pred_label)
-                            samples_logged += 1
-
-                        if pred_label != true_label:
-                            misclassified_img = wandb.Image(images[j])
-                            misclassified_table.add_data(misclassified_img, true_label, pred_label)
-
-            test_accuracy = accuracy_score(all_labels, all_preds)
-            wandb.log({"test_accuracy": test_accuracy})
-
-            # Log the tables
-            wandb.log({"sample_test_predictions": sample_predictions_table})
-            wandb.log({"misclassified_test_examples": misclassified_table})
-
-            # Save model locally
-            torch.save(model.state_dict(), "mnist_model.pth")
-
-            # Log model artifact
-            model_artifact = wandb.Artifact(
-                "mnist-simple-nn",
-                type="model",
-                description="Simple Neural Network trained on MNIST",
-                metadata={"epochs": epochs_slider.value, "lr": lr_slider.value, "batch_size": batch_size}
-            )
-            model_artifact.add_file("mnist_model.pth")
-            wandb.log_artifact(model_artifact)
-
-            wandb.finish()
-
-            trained_model = model
-
-            # Build results display
-            logs_table = mo.ui.table(
-                training_logs,
-                label="Training Progress",
-            )
-
-            training_result = mo.vstack([
-                mo.callout(
-                    mo.md(f"**Training Complete!** Test Accuracy: **{test_accuracy * 100:.2f}%**"),
-                    kind="success",
-                ),
-                mo.md(f"**View your run in W&B:** [{run_url}]({run_url})"),
-                mo.md("### Training Logs"),
-                logs_table,
-            ])
-
-            mo.output.replace(training_result)
-
-    training_result if training_result else mo.md(
-        "_Click 'Start Training' to begin. Make sure you're logged in to W&B first._"
+    training_output if training_output else mo.md(
+        "_Click 'Run Training Script' to begin. Make sure you're logged in to W&B first._"
     )
-    return (
-        run_url,
-        test_accuracy,
-        trained_model,
-        training_result,
-    )
+    return (training_output,)
 
 
 @app.cell
@@ -489,7 +490,6 @@ def _(
     mo,
     np,
     torch,
-    trained_model,
     transforms,
 ):
     prediction_result = None
@@ -524,21 +524,17 @@ def _(
             normalize = transforms.Normalize((0.1307,), (0.3081,))
             img_tensor = normalize(img_tensor)
 
-            # Get model for inference
-            if trained_model is not None:
-                model_to_use = trained_model
-            else:
-                # Try to load saved model
-                try:
-                    model_to_use = SimpleNN()
-                    model_to_use.load_state_dict(torch.load("mnist_model.pth", weights_only=True))
-                    model_to_use.eval()
-                except FileNotFoundError:
-                    prediction_result = mo.callout(
-                        mo.md("**No trained model found.** Please train the model first (Step 3)."),
-                        kind="warn",
-                    )
-                    model_to_use = None
+            # Load trained model from file
+            try:
+                model_to_use = SimpleNN()
+                model_to_use.load_state_dict(torch.load("mnist_model.pth", weights_only=True))
+                model_to_use.eval()
+            except FileNotFoundError:
+                prediction_result = mo.callout(
+                    mo.md("**No trained model found.** Please train the model first (Step 3)."),
+                    kind="warn",
+                )
+                model_to_use = None
 
             if model_to_use is not None:
                 model_to_use.eval()
