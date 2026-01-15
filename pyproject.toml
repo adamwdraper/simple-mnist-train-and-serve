@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "A simple MNIST digit recognizer with training and serving capabilities"
 requires-python = ">=3.11"
 dependencies = [
+    "marimo",
     "wandb",
     "torch",
     "torchvision",

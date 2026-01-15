@@ -2,6 +2,15 @@
 
 This project demonstrates a basic neural network for recognizing handwritten digits from the MNIST dataset. It logs training and evaluation metrics to Weights & Biases, providing a hands-on way to understand the fundamentals of AI model training.
 
+## Interactive Notebook (marimo)
+
+The full README walkthrough now lives in an interactive marimo notebook. Open it to install
+dependencies, log in to W&B, train the model, and serve the API + web UI:
+
+```bash
+uv run marimo edit mnist_marimo.py
+```
+
 ## How it Works
 
 ### The Dataset: MNIST
