@@ -179,8 +179,17 @@ def _(mo):
 # ============================================================================
 
 @app.cell
-def _(mo):
+def _(wandb):
+    # Check if user is already logged in via saved credentials in ~/.netrc
+    existing_api_key = wandb.api.api_key or ""
+    already_logged_in = existing_api_key != ""
+    return already_logged_in, existing_api_key
+
+
+@app.cell
+def _(existing_api_key, mo):
     api_key_input = mo.ui.text(
+        value=existing_api_key,
         placeholder="Paste your W&B API key here...",
         kind="password",
         label="W&B API Key",
@@ -191,15 +200,21 @@ def _(mo):
 
 
 @app.cell
-def _(api_key_input, login_button, mo, wandb):
+def _(already_logged_in, api_key_input, login_button, mo, wandb):
     login_status = None
-    logged_in = False
+    logged_in = already_logged_in
 
-    if login_button.value and api_key_input.value:
+    if already_logged_in and not login_button.value:
+        # User is already authenticated from a previous session
+        login_status = mo.callout(
+            mo.md("**Already logged in to W&B!** Your saved credentials are being used. You can proceed to training."),
+            kind="success",
+        )
+    elif login_button.value and api_key_input.value:
         try:
             wandb.login(key=api_key_input.value, relogin=True)
             login_status = mo.callout(
-                mo.md("**Successfully logged in to W&B!** You can now proceed to training."),
+                mo.md("**Successfully logged in to W&B!** Your credentials have been saved for future sessions."),
                 kind="success",
             )
             logged_in = True
@@ -214,27 +229,27 @@ def _(api_key_input, login_button, mo, wandb):
             mo.md("Please enter your API key before clicking Login."),
             kind="warn",
         )
-        logged_in = False
-    else:
-        login_status = mo.md("_Enter your API key and click 'Login to W&B'._")
 
     return logged_in, login_status
 
 
 @app.cell
 def _(api_key_input, login_button, login_status, mo):
-    login_content = mo.vstack([
+    login_items = [
         mo.md(
             """
-            ## Step 1: Authenticate with Weights & Biases
-
             Enter your W&B API key below to enable experiment tracking. 
             You can find your API key at [wandb.ai/authorize](https://wandb.ai/authorize).
             """
         ),
-        mo.hstack([api_key_input, login_button], justify="start", gap=1),
-        login_status,
-    ])
+        api_key_input,
+        login_button,
+    ]
+    
+    if login_status:
+        login_items.append(login_status)
+    
+    login_content = mo.vstack(login_items)
     return (login_content,)
 
 
@@ -250,7 +265,7 @@ def _(mo):
         value=5,
         step=1,
         label="Epochs",
-        show_value=True,
+        show_value=False,
     )
     return (epochs_slider,)
 
@@ -259,11 +274,11 @@ def _(mo):
 def _(mo):
     lr_slider = mo.ui.slider(
         start=0.0001,
-        stop=0.1,
+        stop=0.01,
         value=0.001,
         step=0.0001,
         label="Learning Rate",
-        show_value=True,
+        show_value=False,
     )
     return (lr_slider,)
 
@@ -345,10 +360,11 @@ def _(logged_in, mo, subprocess, train_button):
 @app.cell
 def _(batch_size_dropdown, epochs_slider, lr_slider, mo, train_button, training_output):
     training_content = mo.vstack([
-        mo.md("## Training"),
         mo.md(
             """
-            ### Hyperparameters
+            ##
+
+            ### Training settings
             
             **Hyperparameters** are settings you choose *before* training begins. Unlike the model's 
             internal weights (which are learned automatically), hyperparameters are decisions you make 
@@ -362,7 +378,7 @@ def _(batch_size_dropdown, epochs_slider, lr_slider, mo, train_button, training_
         mo.hstack([
             mo.vstack([
                 mo.md("**Epochs**"),
-                epochs_slider,
+                mo.hstack([epochs_slider, mo.md(f"**{epochs_slider.value}**")], justify="start", gap=1),
                 mo.md(
                     """
                     One **epoch** is one complete pass through all 60,000 training images. During each 
@@ -386,7 +402,7 @@ def _(batch_size_dropdown, epochs_slider, lr_slider, mo, train_button, training_
             ], align="start"),
             mo.vstack([
                 mo.md("**Learning Rate**"),
-                lr_slider,
+                mo.hstack([lr_slider, mo.md(f"**{lr_slider.value:.4f}**")], justify="start", gap=1),
                 mo.md(
                     """
                     The **learning rate** controls how much the model adjusts its weights after each 
@@ -599,10 +615,10 @@ def _(file_upload, mo, prediction_result):
 @app.cell
 def _(intro_content, login_content, mo, test_content, training_content):
     mo.ui.tabs({
-        "Project Intro": intro_content,
-        "W&B Login": login_content,
-        "Training": training_content,
-        "Test Model": test_content,
+        f"{mo.icon('lucide:home')} Introduction": intro_content,
+        f"{mo.icon('lucide:settings')} 1. Setup": login_content,
+        f"{mo.icon('lucide:bot')} 2: Training": training_content,
+        f"{mo.icon('lucide:eye')} 3: Test Model": test_content,
     })
     return
 
