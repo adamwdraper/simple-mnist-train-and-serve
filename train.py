@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -13,8 +15,19 @@ CONFIG_PATH = "config.yaml"
 with open(CONFIG_PATH, 'r') as file:
     yaml_config = yaml.safe_load(file)
 
-# Initialize Weights & Biases, passing the loaded config
-wandb.init(project="simple-mnist-training", config=yaml_config)
+# Load .env file manually (W&B will auto-read WANDB_ENTITY and WANDB_PROJECT)
+env_path = Path(".env")
+if env_path.exists():
+    for line in env_path.read_text().split("\n"):
+        if "=" in line and not line.startswith("#"):
+            key, value = line.split("=", 1)
+            value = value.strip().strip('"').strip("'")
+            os.environ[key.strip()] = value
+
+# Initialize Weights & Biases (reads WANDB_ENTITY and WANDB_PROJECT from env)
+# Falls back to default project if not set
+wandb_project = os.environ.get("WANDB_PROJECT", "simple-mnist-training")
+wandb.init(project=wandb_project, config=yaml_config)
 
 # Configuration - now accessed from wandb.config which holds the YAML content
 config = wandb.config
