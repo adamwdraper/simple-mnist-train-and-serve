@@ -23,16 +23,20 @@ def _():
     import numpy as np
     from PIL import Image
     import io
+    import os
     import re
     import yaml
     import subprocess
+    from pathlib import Path
     return (
         Image,
+        Path,
         accuracy_score,
         io,
         nn,
         np,
         optim,
+        os,
         re,
         subprocess,
         torch,
@@ -104,6 +108,55 @@ def _(wandb):
 
 
 @app.cell
+def _(Path):
+    # Create .env from .env.example if it doesn't exist
+    env_path = Path(".env")
+    env_example_path = Path(".env.example")
+    if not env_path.exists() and env_example_path.exists():
+        env_path.write_text(env_example_path.read_text())
+    
+    # Read existing project config from .env file
+    existing_entity = ""
+    existing_project = ""
+    if env_path.exists():
+        _env_content = env_path.read_text()
+        for line in _env_content.split("\n"):
+            if line.startswith("WANDB_ENTITY="):
+                existing_entity = line.split("=", 1)[1].strip().strip('"').strip("'")
+            elif line.startswith("WANDB_PROJECT="):
+                existing_project = line.split("=", 1)[1].strip().strip('"').strip("'")
+    # Combine for display
+    existing_project_display = f"{existing_entity}/{existing_project}" if existing_entity else existing_project
+    return env_path, existing_project_display
+
+
+@app.cell
+def _(existing_project_display, mo):
+    project_name_input = mo.ui.text(
+        value=existing_project_display,
+        placeholder="entity/project-name (e.g., wandb-designers/my-project)",
+        label="W&B Project Name",
+        full_width=True,
+    )
+    return (project_name_input,)
+
+
+@app.cell
+def _(env_path, project_name_input):
+    # Auto-save project name to .env file when it changes
+    # Parse entity/project format and save as separate env vars
+    if project_name_input.value:
+        _value = project_name_input.value.strip()
+        if "/" in _value:
+            _entity, _project = _value.split("/", 1)
+            _new_env_content = f'WANDB_ENTITY="{_entity}"\nWANDB_PROJECT="{_project}"\n'
+        else:
+            _new_env_content = f'WANDB_PROJECT="{_value}"\n'
+        env_path.write_text(_new_env_content)
+    return
+
+
+@app.cell
 def _(existing_api_key, mo):
     api_key_input = mo.ui.text(
         value=existing_api_key,
@@ -151,13 +204,20 @@ def _(already_logged_in, api_key_input, login_button, mo, wandb):
 
 
 @app.cell
-def _(api_key_input, login_button, login_status, mo):
+def _(api_key_input, login_button, login_status, mo, project_name_input):
     login_items = [
         mo.md(
             """
             ##
-
-            Enter your W&B API key below to enable experiment tracking. 
+            
+            Set your W&B project name below. Use the format `entity/project-name` 
+            (e.g., `wandb-designers/mnist-training`). This will be saved automatically.
+            """
+        ),
+        project_name_input,
+        mo.md(
+            """
+            Enter your W&B API key to enable experiment tracking. 
             You can find your API key at [wandb.ai/authorize](https://wandb.ai/authorize).
             """
         ),
