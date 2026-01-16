@@ -69,107 +69,22 @@ def _(mo):
     intro_content = mo.vstack([
         mo.md(
             """
-            # Simple MNIST Digit Recognizer
+            ##
 
-            Welcome! This interactive notebook will teach you the fundamentals of training a neural network 
+            This interactive notebook teaches you the fundamentals of training a neural network 
             by building a model that recognizes handwritten digits. You'll train a real model, track your 
             experiments with **Weights & Biases**, and see how changing settings affects performance.
+            
+            We'll be using **MNIST**, the "Hello World" of machine learning — a dataset of 70,000 handwritten 
+            digit images (60,000 for training, 10,000 for testing). Each image is 28x28 pixels, and the goal 
+            is to classify which digit (0-9) it represents. It's simple enough to train in minutes, yet 
+            complex enough to demonstrate real ML concepts.
+
+            ---
+            
+            **👆 Use the tabs above to navigate through the steps!**
             """
         ),
-        mo.accordion({
-            "What is MNIST?": mo.md(
-                """
-                **MNIST** (Modified National Institute of Standards and Technology) is the "Hello World" of 
-                machine learning. It's a dataset of 70,000 handwritten digit images that has been used since 
-                1998 to benchmark image classification algorithms.
-
-                **Why MNIST matters:**
-                - It's simple enough to train quickly (minutes, not hours)
-                - Complex enough to demonstrate real ML concepts
-                - Small enough to run on any computer (no GPU required)
-                - Well-understood, so you can compare your results to others
-
-                **The dataset contains:**
-                - **60,000 training images** - used to teach the model
-                - **10,000 test images** - used to evaluate performance on unseen data
-                - Each image is **28x28 pixels**, grayscale (single channel)
-                - Labels are digits **0-9**
-
-                The images were collected from Census Bureau employees and high school students writing digits.
-                """
-            ),
-            "What is image classification?": mo.md(
-                """
-                **Image classification** is teaching a computer to look at an image and assign it to a category.
-
-                **The problem we're solving:**
-                - **Input**: A 28x28 pixel image of a handwritten digit
-                - **Output**: A prediction of which digit (0-9) it represents
-
-                This is a **supervised learning** task because we have labeled examples (images paired with 
-                the correct digit) that we use to train the model.
-
-                **How the model learns:**
-                1. **See an image** - The model receives pixel values as input
-                2. **Make a guess** - It outputs probabilities for each digit (0-9)
-                3. **Check the answer** - Compare the guess to the true label
-                4. **Adjust weights** - If wrong, tweak internal parameters to do better next time
-                5. **Repeat** - Process thousands of images, gradually improving
-
-                After training, the model can classify new images it has never seen before.
-                """
-            ),
-            "How does a neural network work?": mo.md(
-                """
-                A **neural network** is a computational model inspired by how the brain processes information.
-
-                **Our SimpleNN architecture:**
-
-                ```
-                Input (784 pixels) → Hidden Layer (128 neurons) → Output (10 classes)
-                ```
-
-                **How it works:**
-
-                1. **Input Layer**: The 28x28 image is flattened into 784 numbers (pixel values)
-
-                2. **Hidden Layer**: 128 neurons, each connected to all 784 inputs
-                   - Each neuron computes a weighted sum of inputs plus a bias
-                   - A **ReLU activation** (Rectified Linear Unit) is applied: negative values become 0
-                   - This layer learns to detect patterns like edges, curves, and shapes
-
-                3. **Output Layer**: 10 neurons, one for each digit class
-                   - Each outputs a "score" for how likely the image is that digit
-                   - The highest score is the model's prediction
-
-                **What gets learned:**
-                - The **weights** (128 × 784 + 10 × 128 = 101,632 parameters!)
-                - These start random and are adjusted during training
-                """
-            ),
-            "What is Weights & Biases?": mo.md(
-                """
-                **Weights & Biases (W&B)** is an experiment tracking platform for machine learning.
-
-                **Why use it:**
-                - **Track metrics** - See loss and accuracy over time as charts
-                - **Compare runs** - Run multiple experiments and compare them side-by-side
-                - **Log artifacts** - Save your trained models for later use
-                - **Reproduce results** - Every run logs its configuration
-
-                **What we'll log:**
-                - `batch_loss` - How wrong the model is on each batch of images
-                - `epoch_loss` - Average loss over a full pass through the training data
-                - `epoch_accuracy` - Percentage of training images classified correctly
-                - `test_accuracy` - Final accuracy on unseen test images
-                - `sample_predictions` - Actual images with predicted vs true labels
-                - `misclassified_examples` - Images where the model got it wrong
-
-                After training, you'll get a link to your W&B dashboard to explore all of this visually.
-                """
-            ),
-        }),
-        mo.md("---\n\n**New to W&B?** [Sign up here](https://wandb.ai/site) to get your API key."),
     ])
     return (intro_content,)
 
@@ -364,15 +279,48 @@ def _(batch_size_dropdown, epochs_slider, lr_slider, mo, train_button, training_
             """
             ##
 
-            ### Training settings
+            **Training** is the process of teaching the neural network to recognize patterns. 
+            In our case, the model will look at thousands of handwritten digit images, compare its predictions 
+            to the correct answers, and gradually adjust its internal weights to improve accuracy.
+            """
+        ),
+        mo.accordion({
+            "(Optional) How a neural network works": mo.md(
+                """
+                A **neural network** is a computational model inspired by how the brain processes information.
+
+                **Our SimpleNN architecture:**
+
+                ```
+                Input (784 pixels) → Hidden Layer (128 neurons) → Output (10 classes)
+                ```
+
+                **How it works:**
+
+                1. **Input Layer**: The 28x28 image is flattened into 784 numbers (pixel values)
+
+                2. **Hidden Layer**: 128 neurons, each connected to all 784 inputs
+                   - Each neuron computes a weighted sum of inputs plus a bias
+                   - A **ReLU activation** (Rectified Linear Unit) is applied: negative values become 0
+                   - This layer learns to detect patterns like edges, curves, and shapes
+
+                3. **Output Layer**: 10 neurons, one for each digit class
+                   - Each outputs a "score" for how likely the image is that digit
+                   - The highest score is the model's prediction
+
+                **What gets learned:**
+                - The **weights** (128 × 784 + 10 × 128 = 101,632 parameters!)
+                - These start random and are adjusted during training
+                """
+            ),
+        }),
+        mo.md(
+            """
+            Let's configure your training run. **Hyperparameters** are settings you choose *before* 
+            training begins — unlike the model's internal weights (which are learned automatically), 
+            these are decisions you make that control *how* the model learns. 
             
-            **Hyperparameters** are settings you choose *before* training begins. Unlike the model's 
-            internal weights (which are learned automatically), hyperparameters are decisions you make 
-            that control *how* the model learns. Finding good hyperparameters is a key part of machine 
-            learning — small changes can dramatically affect whether your model succeeds or fails.
-            
-            The three hyperparameters below control the training process. Adjust them and observe 
-            how they affect the model's accuracy in W&B.
+            Adjust the three settings below and observe how they affect the model's accuracy in W&B.
             """
         ),
         mo.hstack([
@@ -451,30 +399,20 @@ def _(batch_size_dropdown, epochs_slider, lr_slider, mo, train_button, training_
                 ),
             ], align="start"),
         ], justify="start", gap=3, align="start"),
-        mo.callout(
-            mo.md(
-                f"**Current config:** {epochs_slider.value} epochs, LR={lr_slider.value:.4f}, batch size={batch_size_dropdown.value}"
-            ),
-            kind="info",
-        ),
         mo.md("---"),
-        mo.md("### Run Training"),
         mo.md(
             """
-            Click the button below to run the training script. This will:
-            1. Download the MNIST dataset (if not cached)
-            2. Train for the configured number of epochs
-            3. Log metrics to W&B
-            4. Evaluate on the test set
+            Now that you've configured your settings, click the button below to start training. 
+            This will download the MNIST dataset (if not cached), train for the configured number 
+            of epochs, log metrics to W&B, and evaluate on the test set.
             """
         ),
         train_button,
         training_output,
         mo.md("---"),
-        mo.md("### Understanding Your W&B Metrics"),
         mo.md(
             """
-            After training completes, click the W&B run link in the console output to view your 
+            Once training completes, click the W&B run link in the console output to view your 
             experiment dashboard. Here's what each metric means and what to look for:
                         
             | Metric | Description | What to Look For |
@@ -572,7 +510,7 @@ def _(Image, SimpleNN, file_upload, io, mo, np, torch, transforms):
                             mo.md(f"Confidence: **{confidence:.1f}%**"),
                         ]),
                     ], justify="start", gap=2),
-                    mo.md("### All Confidence Scores"),
+                    mo.md("Here's how confident the model is for each digit:"),
                     mo.ui.table(confidence_data),
                 ])
 
@@ -592,14 +530,11 @@ def _(file_upload, mo, prediction_result):
     test_content = mo.vstack([
         mo.md(
             """
-            ## Step 4: Test the Model
+            Now let's see your model in action! Upload an image of a handwritten digit to test 
+            what it predicts.
 
-            Upload an image of a handwritten digit to see what the model predicts!
-
-            **Tips for best results:**
-            - Use a clear image of a single digit (0-9)
-            - White digit on dark background works best (like MNIST)
-            - The image will be automatically resized to 28x28 pixels
+            **Tips for best results:** Use a clear image of a single digit (0-9). White digit on 
+            dark background works best (like MNIST). The image will be automatically resized to 28x28 pixels.
             """
         ),
         file_upload,
@@ -614,12 +549,15 @@ def _(file_upload, mo, prediction_result):
 
 @app.cell
 def _(intro_content, login_content, mo, test_content, training_content):
-    mo.ui.tabs({
-        f"{mo.icon('lucide:home')} Introduction": intro_content,
-        f"{mo.icon('lucide:settings')} 1. Setup": login_content,
-        f"{mo.icon('lucide:bot')} 2: Training": training_content,
-        f"{mo.icon('lucide:eye')} 3: Test Model": test_content,
-    })
+    mo.vstack([
+        mo.md("# Training a neural network with W&B Models"),
+        mo.ui.tabs({
+            f"{mo.icon('lucide:home')} Introduction": intro_content,
+            f"{mo.icon('lucide:settings')} 1. Setup": login_content,
+            f"{mo.icon('lucide:bot')} 2: Training": training_content,
+            f"{mo.icon('lucide:eye')} 3: Test Model": test_content,
+        }),
+    ])
     return
 
 
