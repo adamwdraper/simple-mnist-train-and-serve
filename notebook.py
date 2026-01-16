@@ -23,6 +23,7 @@ def _():
     import numpy as np
     from PIL import Image
     import io
+    import re
     import yaml
     import subprocess
     return (
@@ -32,6 +33,7 @@ def _():
         nn,
         np,
         optim,
+        re,
         subprocess,
         torch,
         torchvision,
@@ -153,6 +155,8 @@ def _(api_key_input, login_button, login_status, mo):
     login_items = [
         mo.md(
             """
+            ##
+
             Enter your W&B API key below to enable experiment tracking. 
             You can find your API key at [wandb.ai/authorize](https://wandb.ai/authorize).
             """
@@ -228,7 +232,7 @@ def _(mo):
 
 
 @app.cell
-def _(logged_in, mo, subprocess, train_button):
+def _(logged_in, mo, re, subprocess, train_button):
     training_output = None
 
     if train_button.value:
@@ -247,15 +251,29 @@ def _(logged_in, mo, subprocess, train_button):
             )
 
             console_output = result.stdout + result.stderr
+            
+            # Extract W&B run link from output
+            wandb_link = None
+            link_match = re.search(r'https://wandb\.ai/[^\s]+', console_output)
+            if link_match:
+                wandb_link = link_match.group(0)
+            
+            # Scrollable console output with max height
+            console_html = mo.Html(
+                f'<pre style="max-height: 300px; overflow-y: auto; padding: 12px; '
+                f'background: #1e1e1e; color: #d4d4d4; border-radius: 6px; '
+                f'font-size: 12px; line-height: 1.4;">{console_output}</pre>'
+            )
 
             if result.returncode == 0:
+                if wandb_link:
+                    success_msg = f"**Training Complete!** 📊 [View your W&B run: {wandb_link}]({wandb_link})"
+                else:
+                    success_msg = "**Training Complete!**"
+                
                 training_output = mo.vstack([
-                    mo.callout(
-                        mo.md("**Training Complete!** See the output below for your W&B run link."),
-                        kind="success",
-                    ),
-                    mo.md("### Console Output"),
-                    mo.md(f"```\n{console_output}\n```"),
+                    mo.callout(mo.md(success_msg), kind="success"),
+                    mo.accordion({"(Optional) Training script output": console_html}),
                 ])
             else:
                 training_output = mo.vstack([
@@ -263,11 +281,8 @@ def _(logged_in, mo, subprocess, train_button):
                         mo.md("**Training failed.** See the error output below."),
                         kind="danger",
                     ),
-                    mo.md("### Console Output"),
-                    mo.md(f"```\n{console_output}\n```"),
+                    mo.accordion({"Console output": console_html}),
                 ])
-    else:
-        training_output = mo.md("_Configure hyperparameters above, then click 'Run Training Script'._")
 
     return (training_output,)
 
@@ -316,6 +331,8 @@ def _(batch_size_dropdown, epochs_slider, lr_slider, mo, train_button, training_
         }),
         mo.md(
             """
+            ##
+
             Let's configure your training run. **Hyperparameters** are settings you choose *before* 
             training begins — unlike the model's internal weights (which are learned automatically), 
             these are decisions you make that control *how* the model learns. 
@@ -399,9 +416,10 @@ def _(batch_size_dropdown, epochs_slider, lr_slider, mo, train_button, training_
                 ),
             ], align="start"),
         ], justify="start", gap=3, align="start"),
-        mo.md("---"),
         mo.md(
             """
+            ##
+
             Now that you've configured your settings, click the button below to start training. 
             This will download the MNIST dataset (if not cached), train for the configured number 
             of epochs, log metrics to W&B, and evaluate on the test set.
@@ -409,9 +427,10 @@ def _(batch_size_dropdown, epochs_slider, lr_slider, mo, train_button, training_
         ),
         train_button,
         training_output,
-        mo.md("---"),
         mo.md(
             """
+            ##
+
             Once training completes, click the W&B run link in the console output to view your 
             experiment dashboard. Here's what each metric means and what to look for:
                         
@@ -556,7 +575,7 @@ def _(intro_content, login_content, mo, test_content, training_content):
             f"{mo.icon('lucide:settings')} 1. Setup": login_content,
             f"{mo.icon('lucide:bot')} 2: Training": training_content,
             f"{mo.icon('lucide:eye')} 3: Test Model": test_content,
-        }),
+        })
     ])
     return
 
